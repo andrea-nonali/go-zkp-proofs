@@ -35,19 +35,19 @@ func (p ECPoint) Equal(p2 ECPoint) bool {
 // Mult returns p scaled by scalar s, i.e. s·p.
 func (p ECPoint) Mult(s *big.Int) ECPoint {
 	modS := new(big.Int).Mod(s, EC.N)
-	X, Y := EC.C.ScalarMult(p.X, p.Y, modS.Bytes())
+	X, Y := EC.KC.ScalarMult(p.X, p.Y, modS.Bytes())
 	return ECPoint{X, Y}
 }
 
 // Add returns the curve sum p + p2.
 func (p ECPoint) Add(p2 ECPoint) ECPoint {
-	X, Y := EC.C.Add(p.X, p.Y, p2.X, p2.Y)
+	X, Y := EC.KC.Add(p.X, p.Y, p2.X, p2.Y)
 	return ECPoint{X, Y}
 }
 
 // Neg returns the additive inverse of p on the curve.
 func (p ECPoint) Neg() ECPoint {
 	negY := new(big.Int).Neg(p.Y)
-	modValue := negY.Mod(negY, EC.C.Params().P)
+	modValue := negY.Mod(negY, EC.KC.Params().P)
 	return ECPoint{p.X, modValue}
 }

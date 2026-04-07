@@ -21,8 +21,8 @@ func VectorPCommit(value []*big.Int) (ECPoint, []*big.Int) {
 		R[i] = r
 
 		modValue := new(big.Int).Mod(value[i], EC.N)
-		lhsX, lhsY := EC.C.ScalarMult(EC.BPG[i].X, EC.BPG[i].Y, modValue.Bytes())
-		rhsX, rhsY := EC.C.ScalarMult(EC.BPH[i].X, EC.BPH[i].Y, r.Bytes())
+		lhsX, lhsY := EC.KC.ScalarMult(EC.BPG[i].X, EC.BPG[i].Y, modValue.Bytes())
+		rhsX, rhsY := EC.KC.ScalarMult(EC.BPH[i].X, EC.BPH[i].Y, r.Bytes())
 		commitment = commitment.Add(ECPoint{lhsX, lhsY}).Add(ECPoint{rhsX, rhsY})
 	}
 

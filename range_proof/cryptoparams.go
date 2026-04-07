@@ -1,7 +1,6 @@
 package bp
 
 import (
-	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/binary"
 	"math/big"
@@ -18,8 +17,7 @@ const VecLength = 64
 // BulletProofs implementation: the curve itself, generator vectors for the
 // inner-product argument, the group order, and the commitment generators G and H.
 type CryptoParams struct {
-	C   elliptic.Curve      // the underlying elliptic curve
-	KC  *btcec.KoblitzCurve // Koblitz-specific curve (secp256k1)
+	KC  *btcec.KoblitzCurve // secp256k1 concrete curve
 	BPG []ECPoint           // per-bit generator vector G for the inner-product argument
 	BPH []ECPoint           // per-bit generator vector H for the inner-product argument
 	N   *big.Int            // order of the generator group
@@ -93,7 +91,6 @@ func NewECPrimeGroupKey(n int) CryptoParams {
 	}
 
 	return CryptoParams{
-		C:   btcec.S256(),
 		KC:  btcec.S256(),
 		BPG: gen1Vals,
 		BPH: gen2Vals,

@@ -19,8 +19,8 @@ import (
 //
 // were constructed with the same plaintext message m.
 type PedersenElgamalEquality struct {
-	h, PK, C1, E1, E2 *ristretto.Point
-	challenge, Z1, Z2  *ristretto.Scalar
+	H, PK, C1, E1, E2 *ristretto.Point
+	Challenge, Z1, Z2 *ristretto.Scalar
 }
 
 // Prove generates the proof that the Pedersen commitment and the ElGamal
@@ -32,7 +32,7 @@ func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto
 	e1, e2 := elgamal.Encrypt(r, &mG, PK)
 	pe.PK = PK
 	C := pedersen.CommitTo(H, m, r)
-	pe.h = H
+	pe.H = H
 
 	var r1, r2 ristretto.Scalar
 	r1.Rand()
@@ -47,14 +47,14 @@ func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto
 	h.Write([]byte(C.String() + e1.String() + e2.String() + pe.C1.String() + pe.E1.String() + pe.E2.String()))
 
 	var challengeScalar ristretto.Scalar
-	pe.challenge = challengeScalar.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))
+	pe.Challenge = challengeScalar.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))
 
 	var z1, cm ristretto.Scalar
-	cm.Mul(pe.challenge, m)
+	cm.Mul(pe.Challenge, m)
 	pe.Z1 = z1.Add(&cm, &r1)
 
 	var z2, cr ristretto.Scalar
-	cr.Mul(pe.challenge, r)
+	cr.Mul(pe.Challenge, r)
 	pe.Z2 = z2.Add(&cr, &r2)
 
 	return pe
@@ -66,18 +66,18 @@ func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto
 func (pe *PedersenElgamalEquality) Verify(C, e1, e2 *ristretto.Point) bool {
 	// Check: C1 + c·C == z1·G + z2·H
 	var cC, C1cC ristretto.Point
-	cC.ScalarMult(C, pe.challenge)
+	cC.ScalarMult(C, pe.Challenge)
 	C1cC.Add(pe.C1, &cC)
 
 	var z1G, z2H, z1Gz2H ristretto.Point
 	z1G.ScalarMultBase(pe.Z1)
-	z2H.ScalarMult(pe.h, pe.Z2)
+	z2H.ScalarMult(pe.H, pe.Z2)
 	z1Gz2H.Add(&z1G, &z2H)
 
 	// Check: E1 + c·e1 == z2·G
 	var ce1, ce2, ce1E1, ce1E2 ristretto.Point
-	ce1.ScalarMult(e1, pe.challenge)
-	ce2.ScalarMult(e2, pe.challenge)
+	ce1.ScalarMult(e1, pe.Challenge)
+	ce2.ScalarMult(e2, pe.Challenge)
 	ce1E1.Add(&ce1, pe.E1)
 	ce1E2.Add(&ce2, pe.E2)
 
