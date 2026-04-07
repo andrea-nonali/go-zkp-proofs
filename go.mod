@@ -1,6 +1,6 @@
-module github.com/11nonali23/elliptic-curve-ZKP-equality
+module github.com/andrea-nonali/go-zkp-proofs
 
-go 1.19
+go 1.21
 
 require (
 	github.com/btcsuite/btcd v0.20.1-beta
