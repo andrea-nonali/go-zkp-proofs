@@ -1,41 +1,53 @@
-package chaum_pedersen
+package chaumPedersen
 
 import (
 	"crypto/sha256"
 	"math/big"
 
+	"github.com/bwesterb/go-ristretto"
 	"github.com/tuhoag/elliptic-curve-cryptography-go/elgamal"
 	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
-
-	"github.com/bwesterb/go-ristretto"
 )
 
+// PedersenElgamalEquality is a Chaum-Pedersen proof that a Pedersen commitment
+//
+//	C = m·G + r·H
+//
+// and an ElGamal ciphertext
+//
+//	(E1, E2) = ElGamal.Encrypt(r, m·G, PK)
+//
+// were constructed with the same plaintext message m.
 type PedersenElgamalEquality struct {
-	h, PK, C1, E1, E2		*ristretto.Point
-	challenge, Z1, Z2	*ristretto.Scalar
+	h, PK, C1, E1, E2 *ristretto.Point
+	challenge, Z1, Z2  *ristretto.Scalar
 }
 
-func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto.Scalar) *PedersenElgamalEquality{
+// Prove generates the proof that the Pedersen commitment and the ElGamal
+// ciphertext derived from (H, PK, m, r) encode the same message m.
+// It populates the receiver and returns it for convenience.
+func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto.Scalar) *PedersenElgamalEquality {
 	var mG ristretto.Point
 	mG.ScalarMultBase(m)
 	e1, e2 := elgamal.Encrypt(r, &mG, PK)
 	pe.PK = PK
 	C := pedersen.CommitTo(H, m, r)
 	pe.h = H
-	
+
 	var r1, r2 ristretto.Scalar
-	r1.Rand(); r2.Rand()
+	r1.Rand()
+	r2.Rand()
 
 	var r1G ristretto.Point
 	r1G.ScalarMultBase(&r1)
 	pe.E1, pe.E2 = elgamal.Encrypt(&r2, &r1G, PK)
-
 	pe.C1 = pedersen.CommitTo(H, &r1, &r2)
 
+	h := sha256.New()
+	h.Write([]byte(C.String() + e1.String() + e2.String() + pe.C1.String() + pe.E1.String() + pe.E2.String()))
+
 	var challengeScalar ristretto.Scalar
-	challenge := sha256.New()
-	challenge.Write([]byte(C.String() + e1.String() + e2.String() + pe.C1.String() + pe.E1.String() + pe.E2.String()))
-	pe.challenge = challengeScalar.SetBigInt(new(big.Int).SetBytes(challenge.Sum(nil)))
+	pe.challenge = challengeScalar.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))
 
 	var z1, cm ristretto.Scalar
 	cm.Mul(pe.challenge, m)
@@ -48,7 +60,11 @@ func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto
 	return pe
 }
 
-func (pe *PedersenElgamalEquality) Verify(C, e1, e2 *ristretto.Point) bool{
+// Verify checks the proof against the Pedersen commitment C and the ElGamal
+// ciphertext components e1, e2. It returns true if and only if the proof is
+// valid.
+func (pe *PedersenElgamalEquality) Verify(C, e1, e2 *ristretto.Point) bool {
+	// Check: C1 + c·C == z1·G + z2·H
 	var cC, C1cC ristretto.Point
 	cC.ScalarMult(C, pe.challenge)
 	C1cC.Add(pe.C1, &cC)
@@ -58,11 +74,13 @@ func (pe *PedersenElgamalEquality) Verify(C, e1, e2 *ristretto.Point) bool{
 	z2H.ScalarMult(pe.h, pe.Z2)
 	z1Gz2H.Add(&z1G, &z2H)
 
+	// Check: E1 + c·e1 == z2·G
 	var ce1, ce2, ce1E1, ce1E2 ristretto.Point
 	ce1.ScalarMult(e1, pe.challenge)
 	ce2.ScalarMult(e2, pe.challenge)
 	ce1E1.Add(&ce1, pe.E1)
 	ce1E2.Add(&ce2, pe.E2)
+
 	var z2G, z2PK, z2PKz1G ristretto.Point
 	z2G.ScalarMultBase(pe.Z2)
 	z2PK.ScalarMult(pe.PK, pe.Z2)

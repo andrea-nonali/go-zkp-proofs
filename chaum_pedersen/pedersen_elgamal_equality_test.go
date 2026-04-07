@@ -1,4 +1,4 @@
-package chaum_pedersen
+package chaumPedersen
 
 import (
 	"testing"
@@ -8,48 +8,46 @@ import (
 	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
-func TestSuccessfulProofOnEqualCommitAndElgamalCyphertext(t *testing.T) {
-	var r, m1, m2 ristretto.Scalar
+func TestPedersenElgamalEqualityProofSucceeds(t *testing.T) {
+	var r, m ristretto.Scalar
 	var mG, PK ristretto.Point
 	r.Rand()
-	m1.Rand()
-	m2.Set(&m1)
-	mG.ScalarMultBase(&m1)
+	m.Rand()
+	mG.ScalarMultBase(&m)
 	PK.Rand()
 	e1, e2 := elgamal.Encrypt(&r, &mG, &PK)
 
 	var H ristretto.Point
 	H.Rand()
-	C := pedersen.CommitTo(&H, &m2, &r)
+	C := pedersen.CommitTo(&H, &m, &r)
 
 	var proof PedersenElgamalEquality
-	proof.Prove(&H, &PK, &m1, &r)
+	proof.Prove(&H, &PK, &m, &r)
 
-	verified := proof.Verify(C, e1, e2)
-	if verified == false {
-		t.Errorf("Chaum Pedersen proof is not verified, but commitments are equal")
+	if !proof.Verify(C, e1, e2) {
+		t.Error("Chaum-Pedersen proof rejected, but commitment and ciphertext encode the same message")
 	}
 }
 
-func TestFailingProofOnDifferentCommitAndElgamalCyphertext(t *testing.T) {
+func TestPedersenElgamalEqualityProofFailsOnDifferentMessages(t *testing.T) {
 	var r, m1, m2 ristretto.Scalar
 	var mG, PK ristretto.Point
 	r.Rand()
 	m1.Rand()
-	m2.Rand()
+	m2.Rand() // independent; astronomically unlikely to equal m1
 	mG.ScalarMultBase(&m1)
 	PK.Rand()
 	e1, e2 := elgamal.Encrypt(&r, &mG, &PK)
 
 	var H ristretto.Point
 	H.Rand()
+	// C commits to m2, but the proof is built for m1.
 	C := pedersen.CommitTo(&H, &m2, &r)
 
 	var proof PedersenElgamalEquality
 	proof.Prove(&H, &PK, &m1, &r)
 
-	verified := proof.Verify(C, e1, e2)
-	if verified == true {
-		t.Errorf("Chaum Pedersen proof is verified, but commitments are different")
+	if proof.Verify(C, e1, e2) {
+		t.Error("Chaum-Pedersen proof accepted, but commitment and ciphertext encode different messages")
 	}
 }
