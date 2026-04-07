@@ -60,7 +60,7 @@ func (sp *SchnorrProof) Prove(H *ristretto.Point, m1, r1, m2, r2 *ristretto.Scal
 // Verify checks the Schnorr equality proof against the commitment verifyComm,
 // which the caller must compute as C1 − C2. It returns true if and only if the
 // proof is valid.
-func (sp SchnorrProof) Verify(verifyComm, H *ristretto.Point) bool {
+func (sp *SchnorrProof) Verify(verifyComm, H *ristretto.Point) bool {
 	cVer := verifyChallenge(H, verifyComm, sp)
 	return sp.C.Equals(&cVer)
 }
@@ -88,7 +88,7 @@ func proofResponse(r, c, rP *ristretto.Scalar) *ristretto.Scalar {
 
 // verifyChallenge recomputes the challenge from the verifier's side as
 // SHA-256(comm ‖ H ‖ z·H − c·comm).
-func verifyChallenge(H, comm *ristretto.Point, sp SchnorrProof) ristretto.Scalar {
+func verifyChallenge(H, comm *ristretto.Point, sp *SchnorrProof) ristretto.Scalar {
 	var zH, cComm, zHSubcComm ristretto.Point
 	zH.ScalarMult(H, sp.Z)
 	cComm.ScalarMult(comm, sp.C)
