@@ -28,22 +28,22 @@ type MultiRangeProof struct {
 	Cx *big.Int
 }
 
-// CalculateLMRP computes the l(x) vector for the multi-range proof:
+// calculateLMRP computes the l(x) vector for the multi-range proof:
 //
 //	l(x) = (aL − z·1^(m·n)) + sL·x
-func CalculateLMRP(aL, sL []*big.Int, z, x *big.Int) []*big.Int {
+func calculateLMRP(aL, sL []*big.Int, z, x *big.Int) []*big.Int {
 	tmp1 := VectorAddScalar(aL, new(big.Int).Neg(z))
 	tmp2 := ScalarVectorMul(sL, x)
 	return VectorAdd(tmp1, tmp2)
 }
 
-// CalculateRMRP computes the r(x) vector for the multi-range proof:
+// calculateRMRP computes the r(x) vector for the multi-range proof:
 //
 //	r(x) = yⁿ ∘ (aR + z·1^(m·n) + sR·x) + zTimesTwo
-func CalculateRMRP(aR, sR, y, zTimesTwo []*big.Int, z, x *big.Int) []*big.Int {
+func calculateRMRP(aR, sR, y, zTimesTwo []*big.Int, z, x *big.Int) []*big.Int {
 	if len(aR) != len(sR) || len(aR) != len(y) || len(y) != len(zTimesTwo) {
 		panic(fmt.Sprintf(
-			"CalculateRMRP: length mismatch: len(aR)=%d len(sR)=%d len(y)=%d len(zTimesTwo)=%d",
+			"calculateRMRP: length mismatch: len(aR)=%d len(sR)=%d len(y)=%d len(zTimesTwo)=%d",
 			len(aR), len(sR), len(y), len(zTimesTwo),
 		))
 	}
@@ -183,8 +183,8 @@ func MRPProve(values []*big.Int) (MultiRangeProof, error) {
 	cx := new(big.Int).SetBytes(chal3[:])
 	MRPResult.Cx = cx
 
-	left := CalculateLMRP(aLConcat, sL, cz, cx)
-	right := CalculateRMRP(aRConcat, sR, PowerOfCY, zPowersTimesTwoVec, cz, cx)
+	left := calculateLMRP(aLConcat, sL, cz, cx)
+	right := calculateRMRP(aRConcat, sR, PowerOfCY, zPowersTimesTwoVec, cz, cx)
 
 	thatPrime := new(big.Int).Mod(
 		new(big.Int).Add(t0, new(big.Int).Add(

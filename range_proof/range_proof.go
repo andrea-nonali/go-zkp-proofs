@@ -44,20 +44,20 @@ func Delta(y []*big.Int, z *big.Int) *big.Int {
 	return new(big.Int).Mod(new(big.Int).Sub(t2, t3), EC.N)
 }
 
-// CalculateL computes the l(x) vector: l(x) = (aL − z·1ⁿ) + sL·x.
-func CalculateL(aL, sL []*big.Int, z, x *big.Int) []*big.Int {
+// calculateL computes the l(x) vector: l(x) = (aL − z·1ⁿ) + sL·x.
+func calculateL(aL, sL []*big.Int, z, x *big.Int) []*big.Int {
 	tmp1 := VectorAddScalar(aL, new(big.Int).Neg(z))
 	tmp2 := ScalarVectorMul(sL, x)
 	return VectorAdd(tmp1, tmp2)
 }
 
-// CalculateR computes the r(x) vector:
+// calculateR computes the r(x) vector:
 //
 //	r(x) = yⁿ ∘ (aR + z·1ⁿ + sR·x) + z²·2ⁿ
-func CalculateR(aR, sR, y, po2 []*big.Int, z, x *big.Int) []*big.Int {
+func calculateR(aR, sR, y, po2 []*big.Int, z, x *big.Int) []*big.Int {
 	if len(aR) != len(sR) || len(aR) != len(y) || len(y) != len(po2) {
 		panic(fmt.Sprintf(
-			"CalculateR: length mismatch: len(aR)=%d len(sR)=%d len(y)=%d len(po2)=%d",
+			"calculateR: length mismatch: len(aR)=%d len(sR)=%d len(y)=%d len(po2)=%d",
 			len(aR), len(sR), len(y), len(po2),
 		))
 	}
@@ -143,8 +143,8 @@ func RPProve(v *big.Int) (RangeProof, error) {
 	cx := new(big.Int).SetBytes(chal3[:])
 	rpresult.Cx = cx
 
-	left := CalculateL(aL, sL, cz, cx)
-	right := CalculateR(aR, sR, PowerOfCY, PowerOfTwos, cz, cx)
+	left := calculateL(aL, sL, cz, cx)
+	right := calculateR(aR, sR, PowerOfCY, PowerOfTwos, cz, cx)
 
 	thatPrime := new(big.Int).Mod(
 		new(big.Int).Add(t0, new(big.Int).Add(

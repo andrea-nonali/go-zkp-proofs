@@ -43,10 +43,10 @@ func GenerateNewParams(G, H []ECPoint, x *big.Int, L, R, P ECPoint) ([]ECPoint, 
 	return Gprime, Hprime, Pprime
 }
 
-// InnerProductProveSub is the recursive helper for InnerProductProve. It
+// innerProductProveSub is the recursive helper for InnerProductProve. It
 // accumulates intermediate L, R values into proof and returns the completed
 // proof at the base case.
-func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []*big.Int, u ECPoint, P ECPoint) InnerProdArg {
+func innerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []*big.Int, u ECPoint, P ECPoint) InnerProdArg {
 	if len(a) == 1 {
 		proof.A = a[0]
 		proof.B = b[0]
@@ -76,7 +76,7 @@ func InnerProductProveSub(proof InnerProdArg, G, H []ECPoint, a []*big.Int, b []
 	aprime := VectorAdd(ScalarVectorMul(a[:nprime], x), ScalarVectorMul(a[nprime:], xinv))
 	bprime := VectorAdd(ScalarVectorMul(b[:nprime], xinv), ScalarVectorMul(b[nprime:], x))
 
-	return InnerProductProveSub(proof, Gprime, Hprime, aprime, bprime, u, Pprime)
+	return innerProductProveSub(proof, Gprime, Hprime, aprime, bprime, u, Pprime)
 }
 
 // InnerProductProve constructs a proof that <a, b> = c given commitment P and
@@ -103,7 +103,7 @@ func InnerProductProve(a []*big.Int, b []*big.Int, c *big.Int, P, U ECPoint, G, 
 	Pprime := P.Add(U.Mult(new(big.Int).Mul(xScalar, c)))
 	ux := U.Mult(xScalar)
 
-	return InnerProductProveSub(runningProof, G, H, a, b, ux, Pprime)
+	return innerProductProveSub(runningProof, G, H, a, b, ux, Pprime)
 }
 
 // InnerProductVerify verifies the inner-product proof ipp against the claimed
