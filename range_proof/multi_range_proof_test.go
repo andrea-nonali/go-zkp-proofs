@@ -1,67 +1,61 @@
 package bp
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 )
 
-func TestMultiRPVerify1(t *testing.T) {
+func mustMRPProve(t *testing.T, values []*big.Int) MultiRangeProof {
+	t.Helper()
+	proof, err := MRPProve(values)
+	if err != nil {
+		t.Fatalf("MRPProve returned unexpected error: %v", err)
+	}
+	return proof
+}
+
+func TestMultiRPVerify4Values(t *testing.T) {
 	values := []*big.Int{big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0)}
 	EC = NewECPrimeGroupKey(64 * len(values))
-	// Testing smallest number in range
-	proof := MRPProve(values)
-	proofString := fmt.Sprintf("%s", proof)
-
-	fmt.Println(len(proofString)) // length is good measure of bytes, correct?
-
-	if MRPVerify(proof) {
-		fmt.Println("Multi Range Proof Verification works")
-	} else {
-		t.Error("***** Multi Range Proof FAILURE")
+	if !MRPVerify(mustMRPProve(t, values)) {
+		t.Error("multi-range proof for 4 zero values failed verification")
 	}
 }
 
-func TestMultiRPVerify2(t *testing.T) {
+func TestMultiRPVerify1Value(t *testing.T) {
 	values := []*big.Int{big.NewInt(0)}
 	EC = NewECPrimeGroupKey(64 * len(values))
-	// Testing smallest number in range
-	if MRPVerify(MRPProve(values)) {
-		fmt.Println("Multi Range Proof Verification works")
-	} else {
-		t.Error("***** Multi Range Proof FAILURE")
+	if !MRPVerify(mustMRPProve(t, values)) {
+		t.Error("multi-range proof for single value failed verification")
 	}
 }
 
-func TestMultiRPVerify3(t *testing.T) {
+func TestMultiRPVerify2Values(t *testing.T) {
 	values := []*big.Int{big.NewInt(0), big.NewInt(1)}
 	EC = NewECPrimeGroupKey(64 * len(values))
-	// Testing smallest number in range
-	if MRPVerify(MRPProve(values)) {
-		fmt.Println("Multi Range Proof Verification works")
-	} else {
-		t.Error("***** Multi Range Proof FAILURE")
+	if !MRPVerify(mustMRPProve(t, values)) {
+		t.Error("multi-range proof for 2 values failed verification")
 	}
 }
 
-func TestMultiRPVerify4(t *testing.T) {
-	for j := 1; j < 33; j = 2 * j {
+func TestMultiRPVerifyVariousSizes(t *testing.T) {
+	for j := 1; j < 33; j *= 2 {
 		values := make([]*big.Int, j)
-		for k := 0; k < j; k++ {
+		for k := range values {
 			values[k] = big.NewInt(0)
 		}
-
 		EC = NewECPrimeGroupKey(64 * len(values))
-		// Testing smallest number in range
-		proof := MRPProve(values)
-		proofString := fmt.Sprintf("%s", proof)
-
-		fmt.Println(len(proofString)) // length is good measure of bytes, correct?
-
-		if MRPVerify(proof) {
-			fmt.Println("Multi Range Proof Verification works")
-		} else {
-			t.Error("***** Multi Range Proof FAILURE")
+		if !MRPVerify(mustMRPProve(t, values)) {
+			t.Errorf("multi-range proof for %d values failed verification", j)
 		}
+	}
+}
+
+func TestMRPProveRejectsNegative(t *testing.T) {
+	values := []*big.Int{big.NewInt(-1), big.NewInt(0)}
+	EC = NewECPrimeGroupKey(64 * len(values))
+	_, err := MRPProve(values)
+	if err == nil {
+		t.Error("MRPProve should return an error for negative values")
 	}
 }

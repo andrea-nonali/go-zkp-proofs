@@ -1,94 +1,104 @@
 package bp
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 )
 
+// BenchmarkMRPVerifySize measures proof generation and verification time for
+// aggregated multi-range proofs of varying sizes (1, 2, 4, … values).
 func BenchmarkMRPVerifySize(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for j := 1; j < 257; j *= 2 {
 			values := make([]*big.Int, j)
-			for k := 0; k < j; k++ {
+			for k := range values {
 				values[k] = big.NewInt(0)
 			}
 
 			EC = NewECPrimeGroupKey(64 * len(values))
-			// Testing smallest number in range
-			proof := MRPProve(values)
-			proofString := fmt.Sprintf("%s", proof)
-			//fmt.Println(proofString)
-			fmt.Printf("Size for %d values: %d bytes\n", j, len(proofString)) // length is good measure of bytes, correct?
+			proof, err := MRPProve(values)
+			if err != nil {
+				b.Fatalf("MRPProve failed: %v", err)
+			}
 
-			if MRPVerify(proof) {
-				fmt.Println("Multi Range Proof Verification works")
-			} else {
-				fmt.Println("***** Multi Range Proof FAILURE")
+			if !MRPVerify(proof) {
+				b.Errorf("MRPVerify failed for %d values", j)
 			}
 		}
 	}
 }
 
-var result MultiRangeProof
-var boores bool
+var benchResult MultiRangeProof
+var benchVerify bool
 
 func BenchmarkMRPProve16(b *testing.B) {
-	j := 16
-	values := make([]*big.Int, j)
-	for k := 0; k < j; k++ {
+	values := make([]*big.Int, 16)
+	for k := range values {
 		values[k] = big.NewInt(0)
 	}
 	EC = NewECPrimeGroupKey(64 * len(values))
+
 	var r MultiRangeProof
 	for i := 0; i < b.N; i++ {
-		r = MRPProve(values)
+		var err error
+		r, err = MRPProve(values)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
-
-	result = r
+	benchResult = r
 }
 
 func BenchmarkMRPVerify16(b *testing.B) {
-	j := 16
-	values := make([]*big.Int, j)
-	for k := 0; k < j; k++ {
+	values := make([]*big.Int, 16)
+	for k := range values {
 		values[k] = big.NewInt(0)
 	}
 	EC = NewECPrimeGroupKey(64 * len(values))
-	proof := MRPProve(values)
+	proof, err := MRPProve(values)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var r bool
 	for i := 0; i < b.N; i++ {
 		r = MRPVerify(proof)
 	}
-	boores = r
+	benchVerify = r
 }
 
 func BenchmarkMRPProve32(b *testing.B) {
-	j := 32
-	values := make([]*big.Int, j)
-	for k := 0; k < j; k++ {
+	values := make([]*big.Int, 32)
+	for k := range values {
 		values[k] = big.NewInt(0)
 	}
 	EC = NewECPrimeGroupKey(64 * len(values))
+
 	var r MultiRangeProof
 	for i := 0; i < b.N; i++ {
-		r = MRPProve(values)
+		var err error
+		r, err = MRPProve(values)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
-	result = r
+	benchResult = r
 }
 
 func BenchmarkMRPVerify32(b *testing.B) {
-	j := 32
-	values := make([]*big.Int, j)
-	for k := 0; k < j; k++ {
+	values := make([]*big.Int, 32)
+	for k := range values {
 		values[k] = big.NewInt(0)
 	}
 	EC = NewECPrimeGroupKey(64 * len(values))
-	proof := MRPProve(values)
+	proof, err := MRPProve(values)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	var r bool
 	for i := 0; i < b.N; i++ {
 		r = MRPVerify(proof)
 	}
-	boores = r
+	benchVerify = r
 }
