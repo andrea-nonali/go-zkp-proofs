@@ -1,7 +1,3 @@
-/*
-Implementation of BulletProofs in Go
-
-*/
 package bp
 
 import (
@@ -13,32 +9,48 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 )
 
-var VecLength = 64
+// VecLength is the default bit-width used when initialising the package-level
+// EC variable in init(). It equals 64, supporting range proofs for values in
+// [0, 2^64).
+const VecLength = 64
 
+// CryptoParams bundles all the elliptic-curve parameters required by the
+// BulletProofs implementation: the curve itself, generator vectors for the
+// inner-product argument, the group order, and the commitment generators G and H.
 type CryptoParams struct {
-	C   elliptic.Curve      // curve
-	KC  *btcec.KoblitzCurve // curve
-	BPG []ECPoint           // slice of gen 1 for BP
-	BPH []ECPoint           // slice of gen 2 for BP
-	N   *big.Int            // scalar prime
-	U   ECPoint             // a point that is a fixed group element with an unknown discrete-log relative to g,h
-	V   int                 // Vector length
-	G   ECPoint             // G value for commitments of a single value
-	H   ECPoint             // H value for commitments of a single value
+	C   elliptic.Curve      // the underlying elliptic curve
+	KC  *btcec.KoblitzCurve // Koblitz-specific curve (secp256k1)
+	BPG []ECPoint           // per-bit generator vector G for the inner-product argument
+	BPH []ECPoint           // per-bit generator vector H for the inner-product argument
+	N   *big.Int            // order of the generator group
+	U   ECPoint             // auxiliary generator with unknown discrete log relative to G/H
+	V   int                 // length of the generator vectors (= number of bits)
+	G   ECPoint             // base generator for value commitments
+	H   ECPoint             // blinding generator for value commitments
 }
 
+// Zero returns the identity element represented as (0, 0) in this package's
+// convention. Note that (0, 0) is not a valid secp256k1 affine point; it is
+// used solely as the additive identity for the iterative commitment summations.
 func (c CryptoParams) Zero() ECPoint {
 	return ECPoint{big.NewInt(0), big.NewInt(0)}
 }
 
+// check panics if err is non-nil. It is used exclusively to handle errors from
+// crypto/rand.Int, which indicate a failure of the operating-system PRNG — a
+// condition that is unrecoverable in a cryptographic context.
 func check(e error) {
 	if e != nil {
 		panic(e)
 	}
 }
 
-// NewECPrimeGroupKey returns the curve (field),
-// Generator 1 x&y, Generator 2 x&y, order of the generators
+// NewECPrimeGroupKey generates a CryptoParams instance for the secp256k1 curve
+// with n-element generator vectors. Generators are derived deterministically
+// from the curve's base-point x-coordinate by iterative SHA-256 hashing,
+// ensuring that no party knows their discrete logs relative to one another.
+//
+// n must be a power of two for the inner-product argument to work correctly.
 func NewECPrimeGroupKey(n int) CryptoParams {
 	curValue := btcec.S256().Gx
 	s256 := sha256.New()
@@ -61,41 +73,38 @@ func NewECPrimeGroupKey(n int) CryptoParams {
 
 		gen2, err := btcec.ParsePubKey(potentialXValue, btcec.S256())
 		if err == nil {
-			if confirmed == 2*n { // once we've generated all g and h values then assign this to u
+			switch {
+			case confirmed == 2*n:
 				u = ECPoint{gen2.X, gen2.Y}
-				//fmt.Println("Got that U value")
-			} else if confirmed == 2*n+1 {
+			case confirmed == 2*n+1:
 				cg = ECPoint{gen2.X, gen2.Y}
-
-			} else if confirmed == 2*n+2 {
+			case confirmed == 2*n+2:
 				ch = ECPoint{gen2.X, gen2.Y}
-			} else {
+			default:
 				if confirmed%2 == 0 {
 					gen1Vals[confirmed/2] = ECPoint{gen2.X, gen2.Y}
-					//fmt.Println("new G Value")
 				} else {
 					gen2Vals[confirmed/2] = ECPoint{gen2.X, gen2.Y}
-					//fmt.Println("new H value")
 				}
 			}
-			confirmed += 1
+			confirmed++
 		}
-		j += 1
+		j++
 	}
 
 	return CryptoParams{
-		btcec.S256(),
-		btcec.S256(),
-		gen1Vals,
-		gen2Vals,
-		btcec.S256().N,
-		u,
-		n,
-		cg,
-		ch}
+		C:   btcec.S256(),
+		KC:  btcec.S256(),
+		BPG: gen1Vals,
+		BPH: gen2Vals,
+		N:   btcec.S256().N,
+		U:   u,
+		V:   n,
+		G:   cg,
+		H:   ch,
+	}
 }
 
 func init() {
 	EC = NewECPrimeGroupKey(VecLength)
-	//fmt.Println(EC)
 }
