@@ -14,11 +14,10 @@
 //
 // # Security note
 //
-// The Fiat-Shamir challenge is derived by hashing the decimal string
-// representations of the curve points. This is not a canonical encoding and
-// provides no domain separation between protocols. For production deployments
-// that require provable security, the encoding should be replaced with a
-// fixed-length big-endian byte encoding and a domain-separation prefix.
+// The Fiat-Shamir challenge is derived by hashing the canonical 32-byte
+// Ristretto encoding of each curve point, prefixed with the domain-separation
+// tag "schnorr-pedersen-equality-v1". This ensures the hash input is injective
+// across point tuples and isolated from other protocols sharing the same key material.
 package schnorr
 
 import (
@@ -46,15 +45,15 @@ func (sp *SchnorrProof) Prove(H *ristretto.Point, m1, r1, m2, r2 *ristretto.Scal
 	var m, r ristretto.Scalar
 	m.Sub(m1, m2)
 	r.Sub(r1, r2)
-	var mG, rH ristretto.Point
+	var mG, rH, comm ristretto.Point
 	mG.ScalarMultBase(&m)
 	rH.ScalarMult(H, &r)
-	comm := new(ristretto.Point).Add(&mG, &rH)
+	comm.Add(&mG, &rH)
 
 	var rP ristretto.Scalar
 	rP.Rand()
 
-	sp.C = proofChallenge(comm, H, &rP)
+	sp.C = proofChallenge(&comm, H, &rP)
 	sp.Z = proofResponse(&r, sp.C, &rP)
 	return sp
 }
@@ -67,13 +66,16 @@ func (sp *SchnorrProof) Verify(verifyComm, H *ristretto.Point) bool {
 	return sp.C.Equals(&cVer)
 }
 
-// proofChallenge computes c = SHA-256(C ‖ H ‖ r·H) and returns it as a scalar.
+// proofChallenge computes c = SHA-256(dst ‖ C ‖ H ‖ r·H) and returns it as a scalar.
 func proofChallenge(C, H *ristretto.Point, r *ristretto.Scalar) *ristretto.Scalar {
 	var rH ristretto.Point
 	rH.ScalarMult(H, r)
 
 	h := sha256.New()
-	h.Write([]byte(C.String() + H.String() + rH.String()))
+	h.Write([]byte("schnorr-pedersen-equality-v1"))
+	h.Write(C.Bytes())
+	h.Write(H.Bytes())
+	h.Write(rH.Bytes())
 
 	var c ristretto.Scalar
 	c.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))
@@ -89,7 +91,7 @@ func proofResponse(r, c, rP *ristretto.Scalar) *ristretto.Scalar {
 }
 
 // verifyChallenge recomputes the challenge from the verifier's side as
-// SHA-256(comm ‖ H ‖ z·H − c·comm).
+// SHA-256(dst ‖ comm ‖ H ‖ z·H − c·comm).
 func verifyChallenge(H, comm *ristretto.Point, sp *SchnorrProof) ristretto.Scalar {
 	var zH, cComm, zHSubcComm ristretto.Point
 	zH.ScalarMult(H, sp.Z)
@@ -97,7 +99,10 @@ func verifyChallenge(H, comm *ristretto.Point, sp *SchnorrProof) ristretto.Scala
 	zHSubcComm.Sub(&zH, &cComm)
 
 	h := sha256.New()
-	h.Write([]byte(comm.String() + H.String() + zHSubcComm.String()))
+	h.Write([]byte("schnorr-pedersen-equality-v1"))
+	h.Write(comm.Bytes())
+	h.Write(H.Bytes())
+	h.Write(zHSubcComm.Bytes())
 
 	var c ristretto.Scalar
 	c.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))

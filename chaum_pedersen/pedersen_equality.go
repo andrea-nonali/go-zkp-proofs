@@ -14,11 +14,10 @@
 //
 // # Security note
 //
-// Challenges are derived by hashing the decimal string representations of the
-// curve points. This is not a canonical encoding and provides no domain
-// separation. For production deployments that require provable security the
-// encoding should be replaced with a fixed-length byte encoding and a
-// domain-separation prefix.
+// Challenges are derived by hashing the canonical 32-byte Ristretto encoding
+// of each curve point, prefixed with a protocol-specific domain-separation tag.
+// This ensures the hash input is injective across point tuples and isolated
+// from other protocols sharing the same key material.
 package chaumPedersen
 
 import (
@@ -60,7 +59,11 @@ func (p *PedersenEquality) Prove(H *ristretto.Point, m, r1, r2 *ristretto.Scalar
 	p.C4 = commitTo(H, &r3, &r5)
 
 	h := sha256.New()
-	h.Write([]byte(C1.String() + C2.String() + p.C3.String() + p.C4.String()))
+	h.Write([]byte("chaum-pedersen-equality-v1"))
+	h.Write(C1.Bytes())
+	h.Write(C2.Bytes())
+	h.Write(p.C3.Bytes())
+	h.Write(p.C4.Bytes())
 
 	var challengeScalar ristretto.Scalar
 	p.Challenge = challengeScalar.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))
