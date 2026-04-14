@@ -42,7 +42,13 @@ func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto
 	pe.C1 = commitTo(H, &r1, &r2)
 
 	h := sha256.New()
-	h.Write([]byte(C.String() + e1.String() + e2.String() + pe.C1.String() + pe.E1.String() + pe.E2.String()))
+	h.Write([]byte("chaum-pedersen-elgamal-equality-v1"))
+	h.Write(C.Bytes())
+	h.Write(e1.Bytes())
+	h.Write(e2.Bytes())
+	h.Write(pe.C1.Bytes())
+	h.Write(pe.E1.Bytes())
+	h.Write(pe.E2.Bytes())
 
 	var challengeScalar ristretto.Scalar
 	pe.Challenge = challengeScalar.SetBigInt(new(big.Int).SetBytes(h.Sum(nil)))

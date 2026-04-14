@@ -88,9 +88,9 @@ the prover demonstrates they were built with the **same message `m`**, without r
 Let `C = C₁ − C₂ = (r₁−r₂)·H` (a commitment to 0 if and only if `m₁ = m₂`).
 
 1. **Prover** picks random `ρ ∈ Zₚ`, computes `R = ρ·H`.
-2. **Challenge** `c = SHA-256(C ‖ H ‖ R)`.
+2. **Challenge** `c = SHA-256("schnorr-pedersen-equality-v1" ‖ C ‖ H ‖ R)`.
 3. **Response** `z = (r₁−r₂)·c + ρ`.
-4. **Verifier** recomputes `c' = SHA-256(C ‖ H ‖ z·H − c·C)` and checks `c == c'`.
+4. **Verifier** recomputes `c' = SHA-256("schnorr-pedersen-equality-v1" ‖ C ‖ H ‖ z·H − c·C)` and checks `c == c'`.
 
 Correctness: `z·H − c·C = ((r₁−r₂)·c + ρ)·H − c·(r₁−r₂)·H = ρ·H = R`. ✓
 
@@ -158,7 +158,6 @@ go get github.com/andrea-nonali/go-zkp-proofs
 | Dependency | Used by | Purpose |
 |------------|---------|---------|
 | `github.com/bwesterb/go-ristretto v1.2.2` | `schnorr`, `chaumPedersen` | Ristretto255 curve arithmetic |
-| `github.com/tuhoag/elliptic-curve-cryptography-go v0.0.4` | `schnorr`, `chaumPedersen` | Pedersen commitment & ElGamal helpers |
 
 ---
 
@@ -169,7 +168,6 @@ go get github.com/andrea-nonali/go-zkp-proofs
 ```go
 import (
     "github.com/bwesterb/go-ristretto"
-    "github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
     "github.com/andrea-nonali/go-zkp-proofs/schnorr"
 )
 
@@ -178,8 +176,15 @@ H.Rand()
 var m, r1, r2 ristretto.Scalar
 m.Rand(); r1.Rand(); r2.Rand()
 
-C1 := pedersen.CommitTo(&H, &m, &r1)
-C2 := pedersen.CommitTo(&H, &m, &r2)
+// Compute Pedersen commitments C = m·G + r·H.
+commit := func(m, r *ristretto.Scalar) *ristretto.Point {
+    var mG, rH ristretto.Point
+    mG.ScalarMultBase(m)
+    rH.ScalarMult(&H, r)
+    return new(ristretto.Point).Add(&mG, &rH)
+}
+C1 := commit(&m, &r1)
+C2 := commit(&m, &r2)
 
 // Prove equality.
 var proof schnorr.SchnorrProof
@@ -198,7 +203,6 @@ ok := proof.Verify(&C, &H) // true
 ```go
 import (
     "github.com/bwesterb/go-ristretto"
-    "github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
     cp "github.com/andrea-nonali/go-zkp-proofs/chaum_pedersen"
 )
 
@@ -207,8 +211,15 @@ H.Rand()
 var m, r1, r2 ristretto.Scalar
 m.Rand(); r1.Rand(); r2.Rand()
 
-C1 := pedersen.CommitTo(&H, &m, &r1)
-C2 := pedersen.CommitTo(&H, &m, &r2)
+// Compute Pedersen commitments C = m·G + r·H.
+commit := func(m, r *ristretto.Scalar) *ristretto.Point {
+    var mG, rH ristretto.Point
+    mG.ScalarMultBase(m)
+    rH.ScalarMult(&H, r)
+    return new(ristretto.Point).Add(&mG, &rH)
+}
+C1 := commit(&m, &r1)
+C2 := commit(&m, &r2)
 
 var proof cp.PedersenEquality
 proof.Prove(&H, &m, &r1, &r2)
@@ -223,8 +234,6 @@ ok := proof.Verify(C1, C2) // true
 ```go
 import (
     "github.com/bwesterb/go-ristretto"
-    "github.com/tuhoag/elliptic-curve-cryptography-go/elgamal"
-    "github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
     cp "github.com/andrea-nonali/go-zkp-proofs/chaum_pedersen"
 )
 
@@ -233,10 +242,17 @@ H.Rand(); PK.Rand()
 var m, r ristretto.Scalar
 m.Rand(); r.Rand()
 
-var mG ristretto.Point
+// Pedersen commitment C = m·G + r·H.
+var mG, rH ristretto.Point
 mG.ScalarMultBase(&m)
-e1, e2 := elgamal.Encrypt(&r, &mG, &PK)
-C := pedersen.CommitTo(&H, &m, &r)
+rH.ScalarMult(&H, &r)
+C := new(ristretto.Point).Add(&mG, &rH)
+
+// ElGamal ciphertext (e1, e2) = (r·G, m·G + r·PK).
+var rG, rPK ristretto.Point
+rG.ScalarMultBase(&r)
+rPK.ScalarMult(&PK, &r)
+e1, e2 := &rG, new(ristretto.Point).Add(&mG, &rPK)
 
 var proof cp.PedersenElgamalEquality
 proof.Prove(&H, &PK, &m, &r)
@@ -254,15 +270,15 @@ Both packages use **Ristretto255** via [`go-ristretto`](https://github.com/bwest
 
 ### Fiat-Shamir Transform
 
-All proofs are made non-interactive by replacing the verifier's random challenge with the SHA-256 hash of the transcript so far. This operates in the **random oracle model**; the security reduction holds under the assumption that SHA-256 behaves like a random oracle.
+All proofs are made non-interactive by replacing the verifier's random challenge with the SHA-256 hash of the transcript so far. This operates in the **random oracle model**; the security reduction holds under the assumption that SHA-256 behaves like a random oracle. Each protocol uses the canonical 32-byte Ristretto encoding for all curve points and a unique domain-separation prefix, ensuring the hash input is injective and challenges are isolated across protocols.
 
 ---
 
 ## Security Considerations
 
-1. **Non-canonical hash input.** Challenges are derived by hashing the decimal string representations of curve points. This is not a canonical fixed-length encoding. For provable security replace with a fixed-length big-endian byte encoding and a domain-separation prefix per protocol.
+1. **Canonical encoding.** Challenges are derived by hashing the canonical 32-byte Ristretto encoding of each curve point. This guarantees the hash input is injective across distinct point tuples.
 
-2. **No domain separation.** There is no protocol identifier in the hash input. Do not use the same key material across both `schnorr` and `chaumPedersen` without adding distinct prefixes.
+2. **Domain separation.** Each protocol prefixes its hash input with a unique tag (`"schnorr-pedersen-equality-v1"`, `"chaum-pedersen-equality-v1"`, `"chaum-pedersen-elgamal-equality-v1"`), ensuring that challenges produced by different protocols are cryptographically independent even when key material is shared.
 
 3. **Not audited.** This library is provided for educational and research purposes and has not undergone a professional security audit. Do not use in production systems without independent review.
 
