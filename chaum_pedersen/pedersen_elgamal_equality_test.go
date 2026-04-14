@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/bwesterb/go-ristretto"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/elgamal"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
 func TestPedersenElgamalEqualityProofSucceeds(t *testing.T) {
@@ -15,11 +13,11 @@ func TestPedersenElgamalEqualityProofSucceeds(t *testing.T) {
 	m.Rand()
 	mG.ScalarMultBase(&m)
 	PK.Rand()
-	e1, e2 := elgamal.Encrypt(&r, &mG, &PK)
+	e1, e2 := encryptElGamal(&r, &mG, &PK)
 
 	var H ristretto.Point
 	H.Rand()
-	C := pedersen.CommitTo(&H, &m, &r)
+	C := commitTo(&H, &m, &r)
 
 	var proof PedersenElgamalEquality
 	proof.Prove(&H, &PK, &m, &r)
@@ -37,12 +35,12 @@ func TestPedersenElgamalEqualityProofFailsOnDifferentMessages(t *testing.T) {
 	m2.Rand() // independent; astronomically unlikely to equal m1
 	mG.ScalarMultBase(&m1)
 	PK.Rand()
-	e1, e2 := elgamal.Encrypt(&r, &mG, &PK)
+	e1, e2 := encryptElGamal(&r, &mG, &PK)
 
 	var H ristretto.Point
 	H.Rand()
 	// C commits to m2, but the proof is built for m1.
-	C := pedersen.CommitTo(&H, &m2, &r)
+	C := commitTo(&H, &m2, &r)
 
 	var proof PedersenElgamalEquality
 	proof.Prove(&H, &PK, &m1, &r)

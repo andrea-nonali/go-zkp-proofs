@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/bwesterb/go-ristretto"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
 func TestSchnorrProofOnEqualCommits(t *testing.T) {
@@ -50,6 +49,9 @@ func TestSchnorrProofFailsOnDifferentCommits(t *testing.T) {
 func generateCommitment(H *ristretto.Point, m *ristretto.Scalar) (*ristretto.Point, *ristretto.Scalar) {
 	var r ristretto.Scalar
 	r.Rand()
-	C := pedersen.CommitTo(H, m, &r)
+	var mG, rH ristretto.Point
+	mG.ScalarMultBase(m)
+	rH.ScalarMult(H, &r)
+	C := new(ristretto.Point).Add(&mG, &rH)
 	return C, &r
 }

@@ -5,8 +5,6 @@ import (
 	"math/big"
 
 	"github.com/bwesterb/go-ristretto"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/elgamal"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
 // PedersenElgamalEquality is a Chaum-Pedersen proof that a Pedersen commitment
@@ -29,9 +27,9 @@ type PedersenElgamalEquality struct {
 func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto.Scalar) *PedersenElgamalEquality {
 	var mG ristretto.Point
 	mG.ScalarMultBase(m)
-	e1, e2 := elgamal.Encrypt(r, &mG, PK)
+	e1, e2 := encryptElGamal(r, &mG, PK)
 	pe.PK = PK
-	C := pedersen.CommitTo(H, m, r)
+	C := commitTo(H, m, r)
 	pe.H = H
 
 	var r1, r2 ristretto.Scalar
@@ -40,8 +38,8 @@ func (pe *PedersenElgamalEquality) Prove(H, PK *ristretto.Point, m, r *ristretto
 
 	var r1G ristretto.Point
 	r1G.ScalarMultBase(&r1)
-	pe.E1, pe.E2 = elgamal.Encrypt(&r2, &r1G, PK)
-	pe.C1 = pedersen.CommitTo(H, &r1, &r2)
+	pe.E1, pe.E2 = encryptElGamal(&r2, &r1G, PK)
+	pe.C1 = commitTo(H, &r1, &r2)
 
 	h := sha256.New()
 	h.Write([]byte(C.String() + e1.String() + e2.String() + pe.C1.String() + pe.E1.String() + pe.E2.String()))
@@ -87,4 +85,22 @@ func (pe *PedersenElgamalEquality) Verify(C, e1, e2 *ristretto.Point) bool {
 	z2PKz1G.Add(&z1G, &z2PK)
 
 	return C1cC.Equals(&z1Gz2H) && ce1E1.Equals(&z2G) && ce1E2.Equals(&z2PKz1G)
+}
+
+// commitTo computes the Pedersen commitment m·G + r·H.
+func commitTo(H *ristretto.Point, m, r *ristretto.Scalar) *ristretto.Point {
+	var mG, rH, C ristretto.Point
+	mG.ScalarMultBase(m)
+	rH.ScalarMult(H, r)
+	C.Add(&mG, &rH)
+	return &C
+}
+
+// encryptElGamal computes the ElGamal ciphertext (r·G, mG + r·PK).
+func encryptElGamal(r *ristretto.Scalar, mG, PK *ristretto.Point) (*ristretto.Point, *ristretto.Point) {
+	var e1, rPK, e2 ristretto.Point
+	e1.ScalarMultBase(r)
+	rPK.ScalarMult(PK, r)
+	e2.Add(mG, &rPK)
+	return &e1, &e2
 }

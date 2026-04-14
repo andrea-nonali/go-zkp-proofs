@@ -26,7 +26,6 @@ import (
 	"math/big"
 
 	"github.com/bwesterb/go-ristretto"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
 // PedersenEquality is a Chaum-Pedersen proof that two Pedersen commitments
@@ -48,8 +47,8 @@ type PedersenEquality struct {
 //
 // It populates the receiver and returns it for convenience.
 func (p *PedersenEquality) Prove(H *ristretto.Point, m, r1, r2 *ristretto.Scalar) *PedersenEquality {
-	C1 := pedersen.CommitTo(H, m, r1)
-	C2 := pedersen.CommitTo(H, m, r2)
+	C1 := commitTo(H, m, r1)
+	C2 := commitTo(H, m, r2)
 	p.H = H
 
 	var r3, r4, r5 ristretto.Scalar
@@ -57,8 +56,8 @@ func (p *PedersenEquality) Prove(H *ristretto.Point, m, r1, r2 *ristretto.Scalar
 	r4.Rand()
 	r5.Rand()
 
-	p.C3 = pedersen.CommitTo(H, &r3, &r4)
-	p.C4 = pedersen.CommitTo(H, &r3, &r5)
+	p.C3 = commitTo(H, &r3, &r4)
+	p.C4 = commitTo(H, &r3, &r5)
 
 	h := sha256.New()
 	h.Write([]byte(C1.String() + C2.String() + p.C3.String() + p.C4.String()))

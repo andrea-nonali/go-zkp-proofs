@@ -26,7 +26,6 @@ import (
 	"math/big"
 
 	"github.com/bwesterb/go-ristretto"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
 // SchnorrProof holds the challenge scalar C and the response scalar Z produced
@@ -47,7 +46,10 @@ func (sp *SchnorrProof) Prove(H *ristretto.Point, m1, r1, m2, r2 *ristretto.Scal
 	var m, r ristretto.Scalar
 	m.Sub(m1, m2)
 	r.Sub(r1, r2)
-	comm := pedersen.CommitTo(H, &m, &r)
+	var mG, rH ristretto.Point
+	mG.ScalarMultBase(&m)
+	rH.ScalarMult(H, &r)
+	comm := new(ristretto.Point).Add(&mG, &rH)
 
 	var rP ristretto.Scalar
 	rP.Rand()

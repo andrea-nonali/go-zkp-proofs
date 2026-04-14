@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/bwesterb/go-ristretto"
-	"github.com/tuhoag/elliptic-curve-cryptography-go/pedersen"
 )
 
 func TestPedersenEqualityProofSucceeds(t *testing.T) {
@@ -48,6 +47,6 @@ func TestPedersenEqualityProofFailsOnDifferentMessages(t *testing.T) {
 func generateCommitment(H *ristretto.Point, m *ristretto.Scalar) (*ristretto.Point, *ristretto.Scalar) {
 	var r ristretto.Scalar
 	r.Rand()
-	C := pedersen.CommitTo(H, m, &r)
+	C := commitTo(H, m, &r)
 	return C, &r
 }
